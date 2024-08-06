@@ -1,0 +1,5 @@
+**/ffmpeg
+**/x264
+**/*.pt
+__pycache__
+errors.out

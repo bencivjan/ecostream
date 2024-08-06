@@ -1,6 +1,6 @@
 import cv2
 from ultralytics import YOLO
-import torch
+import torch.cuda
 
 class VideoProcessor:
 
