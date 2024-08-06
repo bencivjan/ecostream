@@ -1,5 +1,6 @@
 **/ffmpeg
 **/x264
 **/*.pt
+**/*.so
 __pycache__
 errors.out

@@ -1,4 +1,3 @@
-import os
 import sys
 import threading
 import argparse
@@ -7,6 +6,7 @@ import time
 from datetime import datetime
 import socket
 import subprocess
+import struct
 
 sys.path.append('ffenc_uiuc')
 from ffenc_uiuc import h264
@@ -51,21 +51,13 @@ def throttle(target_fps, start_time):
     if time_to_wait > 0:
         time.sleep(time_to_wait)
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--server_ip', type=str, default='localhost')
-    parser.add_argument('-p', '--server_port', type=int, default=8010)
-    args = parser.parse_args()
+def send_video_thread(socket):
+    cap = cv2.VideoCapture('videos/ny_driving.mov')
 
-    cap = cv2.VideoCapture('videos/ny_driving.nut')
-    client_socket = socket.socket()
-    client_socket.settimeout(5)  # 5 seconds timeout
-    connect_socket(client_socket, args)
-    
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    streamer = h264.H264(client_socket, width, height, fps)
+    streamer = h264.H264(socket, width, height, fps)
 
     target_fps = 5
 
@@ -78,10 +70,37 @@ def main():
             break
 
         streamer.send_frame(frame)
-        print(frame.nbytes)
 
         # Calculate elapsed time and sleep if necessary
         throttle(target_fps, start_time)
+
+def recv_param_update_thread(socket: socket.socket):
+    while True:
+        fps = socket.recv(4)
+        if not fps:
+            return
+        fps = struct.unpack('!I', fps)[0]
+        bitrate = socket.recv(4)
+        if not bitrate:
+            return
+        bitrate = struct.unpack('!I', bitrate)[0]
+        print(f'Setting to {fps} fps, {bitrate} bitrate')
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--server_ip', type=str, default='localhost')
+    parser.add_argument('-p', '--server_port', type=int, default=8010)
+    args = parser.parse_args()
+
+    client_socket = socket.socket()
+    # client_socket.settimeout(5)  # 5 seconds timeout
+    connect_socket(client_socket, args)
+    
+    threading.Thread(target=send_video_thread,
+                     kwargs={'socket': client_socket}).start()
+    
+    threading.Thread(target=recv_param_update_thread,
+                     kwargs={'socket': client_socket}).start()
 
 if __name__ == '__main__':
     main()

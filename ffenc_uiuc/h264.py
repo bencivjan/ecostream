@@ -7,7 +7,7 @@ import struct
 import datetime
 
 class H264:
-    def __init__(self, sock, w=0, h=0, fps=0, logger=None):
+    def __init__(self, sock, w=1, h=1, fps=1, logger=None):
         self.sock = sock
         self.logger = logger
         self.encoder = ffenc.ffenc(int(w), int(h), int(fps))
@@ -24,9 +24,8 @@ class H264:
     def send_frame(self, frame):
         try:
             out = self.encoder.process_frame(frame)
-            # print(out.shape)
 
-            print(f'Frame size: {out.shape[0]} bytes')
+            # print(f'Frame size: {out.shape[0]} bytes')
             start_time = time.time()
 
             self.sock.sendall(struct.pack('!d', start_time))
@@ -54,8 +53,24 @@ class H264:
                 })
         
     def get_frame(self):
-        client_send_start_time = struct.unpack('!d', self.sock.recv(8))[0]
-        data_length = struct.unpack('!I', self.sock.recv(4))[0]
+        """
+        Decodes and returns an h264 frame from the socket
+
+        Parameters:
+        - None
+
+        Returns:
+        - The received frame bytes or None if client has disconnected
+        """
+        start_time_bytes = self.sock.recv(8)
+        if not start_time_bytes:
+            return
+        client_send_start_time = struct.unpack('!d', start_time_bytes)[0]
+
+        data_length_bytes = self.sock.recv(4)
+        if not data_length_bytes:
+            return
+        data_length = struct.unpack('!I', data_length_bytes)[0]
         
         server_recv_start_time = time.time()
 
@@ -72,7 +87,6 @@ class H264:
         data = np.frombuffer(self.buffer, dtype=np.uint8)
         print(data.nbytes)
         frame = self.decoder.process_frame(data)
-        # print(frame.size)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         self.buffer = b''
 

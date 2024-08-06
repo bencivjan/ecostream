@@ -43,8 +43,9 @@ class VideoProcessor:
         # E.g. requested_fps = 30, real_fps = 10. We want to read a new real video frame every 3 requested frames,
         #       otherwise we return the last read frame to avoid running out of frames early.
         #       We will reuse the same predictions for these intermediate frames.
-        if self.index % (self.real_fps // self.requested_fps) == 0:
-            self._ret, self._frame = self.cap.read()
+
+        # if self.index % (self.real_fps // self.requested_fps) == 0:
+        self._ret, self._frame = self.cap.read()
 
         if not self._ret:
             raise StopIteration
@@ -54,8 +55,3 @@ class VideoProcessor:
 
     def __len__(self):
         return self.frame_count
-    
-    def predict(self):
-        if self.index % (self.real_fps // self.requested_fps) == 0:
-            self._prediction = self.model.predict(self._frame, verbose=False)
-        return self._prediction

@@ -19,20 +19,17 @@ class Profiler:
         prev_frame = self.buffer.get()
         prev_pred = self.model.predict(prev_frame, verbose=False)
 
-        for i in range(profile_size-1):
+        for i in range(1, profile_size):
             frame = self.buffer.get()
-            pred = self.model.predict(prev_frame, verbose=False)
+            pred = self.model.predict(frame, verbose=False)
 
             optical_flow = Profiler.calc_optical_flow(prev_pred[0].boxes, pred[0].boxes)
-            print(optical_flow)
             optical_flow_sum += optical_flow
             
             prev_frame = frame
             prev_pred = pred
-            frame = self.buffer.get()
-            print(i)
         
-        return optical_flow_sum / self.buffer_size
+        return optical_flow_sum / profile_size if profile_size > 0 else 0
 
     def add_frame(self, frame):
         self.buffer.put(frame)
