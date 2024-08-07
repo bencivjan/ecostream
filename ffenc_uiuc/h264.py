@@ -17,28 +17,24 @@ class H264:
         self.recv_frame_idx = 0
         self.nbytes_received = 0
 
-        # print(w, h, fps)
         # self.encoder.change_settings(5000, 30)
 
 
     def send_frame(self, frame):
         try:
+            start_time = time.time()
+
             out = self.encoder.process_frame(frame)
 
             # print(f'Frame size: {out.shape[0]} bytes')
-            start_time = time.time()
 
             self.sock.sendall(struct.pack('!d', start_time))
             self.sock.sendall(struct.pack('!I', out.shape[0]))
             self.sock.sendall(out.tobytes())
-            end_time = time.time()
 
             log = {}
-
             log['frame'] = self.send_frame_idx
             log['client_send_start_time'] = start_time
-            log['client_send_end_time'] = end_time
-            log['client_send_duration'] = f'{end_time - start_time:.4f}'
 
             if self.logger:
                 self.logger.log(log)

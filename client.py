@@ -1,12 +1,12 @@
 import sys
 import threading
 import argparse
-import cv2
 import time
 from datetime import datetime
 import socket
 import subprocess
 import struct
+from video_processor import VideoProcessor
 
 sys.path.append('ffenc_uiuc')
 from ffenc_uiuc import h264
@@ -52,27 +52,16 @@ def throttle(target_fps, start_time):
         time.sleep(time_to_wait)
 
 def send_video_thread(socket):
-    cap = cv2.VideoCapture('videos/ny_driving.mov')
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    streamer = h264.H264(socket, width, height, fps)
-
     target_fps = 5
 
-    while True:
-        start_time = time.time()
+    with VideoProcessor('videos/ny_driving.mov') as video:
+        streamer = h264.H264(socket, video.width, video.height, video.fps)
+        for frame in video:
+            start_time = time.time()
+            streamer.send_frame(frame)
+            throttle(target_fps, start_time)
 
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to capture frame")
-            break
-
-        streamer.send_frame(frame)
-
-        # Calculate elapsed time and sleep if necessary
-        throttle(target_fps, start_time)
+        print(f'FPS: {video.get_fps()}')
 
 def recv_param_update_thread(socket: socket.socket):
     while True:

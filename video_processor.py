@@ -1,27 +1,21 @@
 import cv2
-from ultralytics import YOLO
-import torch.cuda
+import time
 
 class VideoProcessor:
 
-    def __init__(self, video_path, requested_fps=None):
+    def __init__(self, video_path):
         self.cap = cv2.VideoCapture(video_path)
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = YOLO('yolov8l.pt').to(device)
+        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        self.height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
         self.frame_count = self.cap.get(int(cv2.CAP_PROP_FRAME_COUNT))
-        self.real_fps = self.cap.get(int(cv2.CAP_PROP_FPS))
-
-        if requested_fps:
-            self.requested_fps = requested_fps
-        else:
-            self.requested_fps = self.real_fps
-
-        if self.real_fps > self.requested_fps:
-            raise ValueError(f'Requested fps {requested_fps} must be larger than real fps {self.real_fps}')
 
         self.index = 0
+
+        # Record FPS
+        self.total_time = 0
+        self.previous_time = 0
 
     def __enter__(self):
         return self
@@ -39,13 +33,14 @@ class VideoProcessor:
         if self.index == self.frame_count:
             raise StopIteration
         
-        # Only read new image from video if the frame index is divisible by the real : requested fps ratio
-        # E.g. requested_fps = 30, real_fps = 10. We want to read a new real video frame every 3 requested frames,
-        #       otherwise we return the last read frame to avoid running out of frames early.
-        #       We will reuse the same predictions for these intermediate frames.
+        if self.previous_time == 0:
+            self.previous_time = time.time()
 
-        # if self.index % (self.real_fps // self.requested_fps) == 0:
         self._ret, self._frame = self.cap.read()
+
+        cur_time = time.time()
+        self.total_time += (cur_time - self.previous_time)
+        self.previous_time = cur_time
 
         if not self._ret:
             raise StopIteration
@@ -55,3 +50,6 @@ class VideoProcessor:
 
     def __len__(self):
         return self.frame_count
+    
+    def get_fps(self):
+        return self.index / self.total_time
