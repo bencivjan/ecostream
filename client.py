@@ -11,6 +11,10 @@ from video_processor import VideoProcessor
 sys.path.append('ffenc_uiuc')
 from ffenc_uiuc import h264
 
+# Skip using locks here because of GIL, but if I ever switch to multiprocessing this will need a lock
+target_fps = 30.0
+shutdown = threading.Event()
+
 def connect_socket(sock: socket.socket, args):
     while True:
         try:
@@ -51,29 +55,42 @@ def throttle(target_fps, start_time):
     if time_to_wait > 0:
         time.sleep(time_to_wait)
 
+def recalibrate(goal_fps, actual_fps):
+    return goal_fps + (goal_fps - actual_fps)
+
 def send_video_thread(socket):
-    target_fps = 5
+    global target_fps
+    adjusted_fps = target_fps
 
     with VideoProcessor('videos/ny_driving.mov') as video:
         streamer = h264.H264(socket, video.width, video.height, video.fps)
         for frame in video:
             start_time = time.time()
             streamer.send_frame(frame)
-            throttle(target_fps, start_time)
+            throttle(adjusted_fps, start_time)
+            adjusted_fps = recalibrate(target_fps, video.get_fps())
 
-        print(f'FPS: {video.get_fps()}')
+            print(f'FPS: {video.get_fps()}')
+    
+    print('Done streaming video...')
+    shutdown.set()
 
 def recv_param_update_thread(socket: socket.socket):
+    global target_fps
+    
     while True:
+        if shutdown.is_set():
+            return
         fps = socket.recv(4)
         if not fps:
             return
-        fps = struct.unpack('!I', fps)[0]
+        fps = struct.unpack('!f', fps)[0]
         bitrate = socket.recv(4)
         if not bitrate:
             return
         bitrate = struct.unpack('!I', bitrate)[0]
         print(f'Setting to {fps} fps, {bitrate} bitrate')
+        target_fps = fps
 
 def main():
     parser = argparse.ArgumentParser()
@@ -85,11 +102,14 @@ def main():
     # client_socket.settimeout(5)  # 5 seconds timeout
     connect_socket(client_socket, args)
     
-    threading.Thread(target=send_video_thread,
+    send_video = threading.Thread(target=send_video_thread,
                      kwargs={'socket': client_socket}).start()
     
-    threading.Thread(target=recv_param_update_thread,
+    recv_params = threading.Thread(target=recv_param_update_thread,
                      kwargs={'socket': client_socket}).start()
+
+    send_video.join()
+    recv_params.join()
 
 if __name__ == '__main__':
     main()
