@@ -1,26 +1,28 @@
 import math
 import numpy as np
-from queue import Queue
+import queue
 from ultralytics import YOLO
 import torch.cuda
 
 class Profiler:
     def __init__(self, buffer_size=0):
-        self.buffer = Queue()
-        self.buffer_size = buffer_size
+        self.buffer = queue.Queue(maxsize=buffer_size)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = YOLO('yolov8l.pt').to(device)
 
     def profile_buffer(self):
-        profile_size = self.buffer_size if self.buffer_size > 0 else self.buffer.qsize()
+        profile_size = self.buffer.qsize()
         optical_flow_sum = 0
 
         prev_frame = self.buffer.get()
         prev_pred = self.model.predict(prev_frame, verbose=False)
 
         for i in range(1, profile_size):
-            frame = self.buffer.get()
+            try:
+                frame = self.buffer.get_nowait()
+            except queue.Full:
+                print('No frames in buffer to profile')
             pred = self.model.predict(frame, verbose=False)
 
             optical_flow = Profiler.calc_optical_flow(prev_pred[0].boxes, pred[0].boxes)
@@ -32,7 +34,12 @@ class Profiler:
         return optical_flow_sum / profile_size if profile_size > 0 else 0
 
     def add_frame(self, frame):
-        self.buffer.put(frame)
+        try:
+            self.buffer.put_nowait(frame)
+        except queue.Full:
+            print('Queue is full, dropping oldest frame')
+            self.buffer.get()
+            self.buffer.put_nowait(frame)
 
     @staticmethod
     def get_center(box):

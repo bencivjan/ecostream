@@ -31,10 +31,11 @@ def profiling_thread(socket: socket.socket, profiler: Profiler, profiling_interv
 
     while not socket_closed.is_set():
         time.sleep(profiling_interval)
+        print(f'============ STARTING PROFILE =============')
         buffer_result = profiler.profile_buffer()
         print(f'============ BUFFER RESULT: {buffer_result} =============')
 
-        fps = buffer_result
+        fps = buffer_result / 4
         bitrate = 10
 
         threading.Thread(target=update_client_params,
@@ -45,7 +46,7 @@ def update_client_params(socket: socket.socket, fps: int, bitrate: int, shutdown
     try:
         socket.sendall(struct.pack('!f', round(fps, 3)))
         socket.sendall(struct.pack('!I', bitrate))
-    except BrokenPipeError:
+    except (ConnectionError, ConnectionResetError, BrokenPipeError):
         shutdown.set()
 
 def main():
@@ -66,7 +67,7 @@ def main():
 
     print(f'Starting server on port {args.socket_port}')
 
-    video_profiler = Profiler()
+    video_profiler = Profiler(buffer_size=30)
 
     while True:
         client_socket, addr = server_socket.accept()

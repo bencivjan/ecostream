@@ -12,8 +12,9 @@ sys.path.append('ffenc_uiuc')
 from ffenc_uiuc import h264
 
 # Skip using locks here because of GIL, but if I ever switch to multiprocessing this will need a lock
-target_fps = 30.0
+target_fps = 5.0
 shutdown = threading.Event()
+video_processor = None
 
 def connect_socket(sock: socket.socket, args):
     while True:
@@ -47,6 +48,8 @@ def set_cpu_freq(cpu_freq):
         print(f"Error: {result.stderr}")
 
 def throttle(target_fps, start_time):
+    if target_fps == 0:
+        raise ArithmeticError
     # Calculate the time to wait between frames
     frame_time = 1.0 / target_fps
 
@@ -56,13 +59,16 @@ def throttle(target_fps, start_time):
         time.sleep(time_to_wait)
 
 def recalibrate(goal_fps, actual_fps):
-    return goal_fps + (goal_fps - actual_fps)
+    return max(goal_fps + (goal_fps - actual_fps), 1)
 
 def send_video_thread(socket):
-    global target_fps
+    global target_fps, video_processor
     adjusted_fps = target_fps
 
     with VideoProcessor('videos/ny_driving.mov') as video:
+        if not video_processor:
+            video_processor = video
+
         streamer = h264.H264(socket, video.width, video.height, video.fps)
         for frame in video:
             start_time = time.time()
@@ -71,12 +77,13 @@ def send_video_thread(socket):
             adjusted_fps = recalibrate(target_fps, video.get_fps())
 
             print(f'FPS: {video.get_fps()}')
+            print(f'Adjusted FPS: {adjusted_fps}')
     
     print('Done streaming video...')
     shutdown.set()
 
 def recv_param_update_thread(socket: socket.socket):
-    global target_fps
+    global target_fps, video_processor
     
     while True:
         if shutdown.is_set():
@@ -89,8 +96,12 @@ def recv_param_update_thread(socket: socket.socket):
         if not bitrate:
             return
         bitrate = struct.unpack('!I', bitrate)[0]
-        print(f'Setting to {fps} fps, {bitrate} bitrate')
+        
         target_fps = fps
+        if video_processor is not None:
+            video_processor.reset_fps_tracking()
+
+        print(f'Setting to {fps} fps, {bitrate} bitrate')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -102,14 +113,11 @@ def main():
     # client_socket.settimeout(5)  # 5 seconds timeout
     connect_socket(client_socket, args)
     
-    send_video = threading.Thread(target=send_video_thread,
-                     kwargs={'socket': client_socket}).start()
-    
-    recv_params = threading.Thread(target=recv_param_update_thread,
+    threading.Thread(target=send_video_thread,
                      kwargs={'socket': client_socket}).start()
 
-    send_video.join()
-    recv_params.join()
+    threading.Thread(target=recv_param_update_thread,
+                     kwargs={'socket': client_socket}).start()
 
 if __name__ == '__main__':
     main()

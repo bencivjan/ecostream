@@ -11,11 +11,11 @@ class VideoProcessor:
 
         self.frame_count = self.cap.get(int(cv2.CAP_PROP_FRAME_COUNT))
 
-        self.index = 0
+        self._index = 0
 
         # Record FPS
         self.total_time = 0
-        self.previous_time = 0
+        self._previous_time = 0
 
     def __enter__(self):
         return self
@@ -30,26 +30,28 @@ class VideoProcessor:
         return self
 
     def __next__(self):
-        if self.index == self.frame_count:
-            raise StopIteration
-        
-        if self.previous_time == 0:
-            self.previous_time = time.time()
+        if self._previous_time == 0:
+            self._previous_time = time.time()
 
         self._ret, self._frame = self.cap.read()
-
-        cur_time = time.time()
-        self.total_time += (cur_time - self.previous_time)
-        self.previous_time = cur_time
 
         if not self._ret:
             raise StopIteration
 
-        self.index += 1
+        cur_time = time.time()
+        self.total_time += (cur_time - self._previous_time)
+        self._previous_time = cur_time
+
+        self._index += 1
         return self._frame
 
     def __len__(self):
         return self.frame_count
     
     def get_fps(self):
-        return self.index / self.total_time
+        return self._index / self.total_time if self.total_time > 0 else 0
+    
+    def reset_fps_tracking(self):
+        self._previous_time = time.time()
+        self.total_time = 0
+        self._index = 0
