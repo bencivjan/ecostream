@@ -1,6 +1,6 @@
 import unittest
-from profiler import Profiler
-from video_processor import VideoProcessor
+from ecoserver.profiler import Profiler
+from ecoclient.video_processor import VideoProcessor
 from ultralytics import YOLO
 import torch.cuda
 

@@ -2,5 +2,6 @@
 **/x264
 **/*.pt
 **/*.so
+*.egg-info
 __pycache__
 errors.out

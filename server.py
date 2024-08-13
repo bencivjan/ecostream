@@ -4,7 +4,7 @@ import argparse
 import sys
 import time
 import struct
-from profiler import Profiler
+from ecoserver.profiler import Profiler
 
 sys.path.append('ffenc_uiuc')
 from ffenc_uiuc import h264
