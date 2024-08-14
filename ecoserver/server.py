@@ -34,17 +34,20 @@ def recv_client_video_thread(client_socket: socket.socket, addr: tuple, profiler
 def profiling_thread(socket: socket.socket, profiler: Profiler, profiling_interval: int):
     socket_closed = threading.Event()
 
+    bitrate = 5000
+
     while not socket_closed.is_set():
         time.sleep(profiling_interval)
         print(f'============ STARTING PROFILE =============')
         buffer_result = profiler.profile_buffer()
         print(f'============ BUFFER RESULT: {buffer_result} =============')
 
-        fps = buffer_result / 4
-        bitrate = 10
+        fps = buffer_result / 2
 
         threading.Thread(target=update_client_params,
                          kwargs={'socket':socket, 'fps':fps, 'bitrate':bitrate, 'shutdown':socket_closed}).start()
+        
+        # bitrate += 2000
 
 
 def update_client_params(socket: socket.socket, fps: int, bitrate: int, shutdown: threading.Event):
@@ -65,7 +68,7 @@ def main():
     args = parser.parse_args()
 
     server_socket = socket.socket()
-    server_socket.bind((HOST_LOCAL, args.socket_port))
+    server_socket.bind((HOST_PUBLIC, args.socket_port))
     server_socket.listen(1)
     # So we don't have to wait when restarting the server
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
