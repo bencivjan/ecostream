@@ -1,27 +1,29 @@
-import sys
+import sys, os
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+ffenc_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ffenc_uiuc'))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+if ffenc_dir not in sys.path:
+    sys.path.append(ffenc_dir)
+
 import threading
 import argparse
 import time
 import socket
 import struct
-from ecoclient.video_processor import VideoProcessor
-from ecoclient.utils import connect_socket, set_cpu_freq, throttle, recalibrate
-
-sys.path.append('ffenc_uiuc')
+from video_processor import VideoProcessor
+from utils import *
 from ffenc_uiuc import h264
-
-MIN_CPU_FREQ = 1500000
-MAX_CPU_FREQ = 2400000
-CPU_FREQ_DELTA = 300000
 
 # Skip using locks here because of GIL, but if I ever switch to multiprocessing this will need a lock
 target_fps = 5.0
 shutdown = threading.Event()
 video_processor = None
+streamer = None
 cur_cpu_freq = MIN_CPU_FREQ
 
 def send_video_thread(socket):
-    global target_fps, video_processor, cur_cpu_freq
+    global target_fps, video_processor, cur_cpu_freq, streamer
     adjusted_fps = target_fps
 
     # Throttle delay determines how many consecutive frames sent without throttling before we increase cpu frequency
@@ -31,7 +33,7 @@ def send_video_thread(socket):
 
     set_cpu_freq(cur_cpu_freq)
 
-    with VideoProcessor('videos/ny_driving.mov') as video:
+    with VideoProcessor('videos/crosswalk.avi') as video:
         if not video_processor:
             video_processor = video
 
@@ -72,6 +74,7 @@ def recv_param_update_thread(socket: socket.socket):
             video_processor.reset_fps_tracking()
 
         set_cpu_freq(MIN_CPU_FREQ)
+        streamer.encoder.change_settings(bitrate, 30) # Bitrate is in kb/s
 
         print(f'Setting to {fps} fps, {bitrate} bitrate')
 

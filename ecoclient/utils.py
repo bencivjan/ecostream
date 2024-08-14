@@ -3,6 +3,10 @@ from datetime import datetime
 import socket
 import subprocess
 
+MIN_CPU_FREQ = 1500000
+MAX_CPU_FREQ = 2400000
+CPU_FREQ_DELTA = 300000
+
 def connect_socket(sock: socket.socket, args):
     while True:
         try:

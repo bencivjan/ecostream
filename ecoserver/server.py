@@ -1,12 +1,17 @@
+import sys, os
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+ffenc_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ffenc_uiuc'))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
+if ffenc_dir not in sys.path:
+    sys.path.append(ffenc_dir)
+
 import socket
 import threading
 import argparse
-import sys
 import time
 import struct
-from ecoserver.profiler import Profiler
-
-sys.path.append('ffenc_uiuc')
+from profiler import Profiler
 from ffenc_uiuc import h264
 
 def recv_client_video_thread(client_socket: socket.socket, addr: tuple, profiler: Profiler):
