@@ -7,17 +7,17 @@ MIN_CPU_FREQ = 1500000
 MAX_CPU_FREQ = 2400000
 CPU_FREQ_DELTA = 300000
 
-def connect_socket(sock: socket.socket, args):
+def connect_socket(sock: socket.socket, server_ip, server_port):
     while True:
         try:
-            sock.connect((args.server_ip, args.server_port))
+            sock.connect((server_ip, server_port))
             break
         except OSError:
             print("Unable to connect to server socket, retrying...")
             datetime_obj = datetime.fromtimestamp(time.time())
             readable_time = datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
             with open("errors.out", "a") as err_file:
-                err_file.write(f'{readable_time}: Unable to connect to server at {args.server_ip}\n')
+                err_file.write(f'{readable_time}: Unable to connect to server at {server_ip}\n')
             time.sleep(5)
 
 # Scaling governor must be set to userspace

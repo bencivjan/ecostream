@@ -1,9 +1,12 @@
 import cv2
 import time
+import os
 
 class VideoProcessor:
 
     def __init__(self, video_path):
+        if not os.path.isfile(video_path):
+            raise FileNotFoundError('Invalid file path')
         self.cap = cv2.VideoCapture(video_path)
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)

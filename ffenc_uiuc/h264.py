@@ -1,6 +1,5 @@
 import time
-import ffdec
-import ffenc
+from h264_encoder import ffenc, ffdec
 import numpy as np
 import cv2
 import struct
@@ -10,8 +9,8 @@ class H264:
     def __init__(self, sock, w=1, h=1, fps=1, logger=None):
         self.sock = sock
         self.logger = logger
-        self.encoder = ffenc.ffenc(int(w), int(h), int(fps))
-        self.decoder = ffdec.ffdec()
+        self.encoder = ffenc(int(w), int(h), int(fps))
+        self.decoder = ffdec()
         self.buffer = b''
         self.send_frame_idx = 0
         self.recv_frame_idx = 0
@@ -20,7 +19,10 @@ class H264:
         # self.encoder.change_settings(5000, 30)
 
 
-    def send_frame(self, frame):
+    def send_frame(self, frame, save_path=None) -> bool:
+        if frame is None:
+            return False
+        
         try:
             start_time = time.time()
 
@@ -32,6 +34,14 @@ class H264:
             self.sock.sendall(struct.pack('!I', out.shape[0]))
             self.sock.sendall(out.tobytes())
 
+            if save_path:
+                # decoded_frame = self.decoder.process_frame(out)
+                # decoded_frame = cv2.cvtColor(decoded_frame, cv2.COLOR_RGB2BGR)
+
+                # Just save raw frame for now
+                if not cv2.imwrite(save_path, frame):
+                    raise AssertionError(f'Unable to write image to {self.save_path}')
+
             log = {}
             log['frame'] = self.send_frame_idx
             log['client_send_start_time'] = start_time
@@ -39,6 +49,9 @@ class H264:
             if self.logger:
                 self.logger.log(log)
             self.send_frame_idx += 1
+
+            return True
+        
         except TimeoutError:
             print("Unable to send frame, connection timed out...")
             if self.logger:
