@@ -42,7 +42,7 @@ def profiling_thread(socket: socket.socket, profiler: Profiler, profiling_interv
         buffer_result = profiler.profile_buffer()
         print(f'============ BUFFER RESULT: {buffer_result} =============')
 
-        fps = buffer_result / 2
+        fps = buffer_result / 4
 
         threading.Thread(target=update_client_params,
                          kwargs={'socket':socket, 'fps':fps, 'bitrate':bitrate, 'shutdown':socket_closed}).start()
