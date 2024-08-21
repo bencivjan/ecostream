@@ -4,8 +4,8 @@ if mod_dir not in sys.path:
     sys.path.append(mod_dir)
 
 import time
+import argparse
 import cv2
-import threading
 from ecoclient.video_processor import VideoProcessor
 from ecoclient.utils import throttle
 from ecoclient.client import EcoClient
@@ -40,9 +40,14 @@ def generate_frames(ecoclient: EcoClient):
         print(f'Ground truth fps: {EcoClient.get_fps(total_start_time, time.time(), video._index)}')
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--server_ip', type=str, default='localhost')
+    parser.add_argument('-p', '--server_port', type=int, default=8010)
+    args = parser.parse_args()
+
     os.makedirs(os.path.join(os.path.dirname(__file__), GROUND_TRUTH_DIR), exist_ok=True)
     os.makedirs(os.path.join(os.path.dirname(__file__), ECOSTREAM_DIR), exist_ok=True)
-    ecoclient = EcoClient(None, '192.168.130.140', 8010)
+    ecoclient = EcoClient(None, args.server_ip, args.server_port)
     generate_frames(ecoclient)
 
 if __name__ == '__main__':
