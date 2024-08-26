@@ -15,7 +15,12 @@ class Profiler:
         profile_size = self.buffer.qsize()
         optical_flow_sum = 0
 
-        prev_frame = self.buffer.get()
+        try:
+            prev_frame = self.buffer.get_nowait()
+        except queue.Empty:
+            print('No frames in buffer to profile')
+            return 0
+
         prev_pred = self.model.predict(prev_frame, verbose=False)
 
         for i in range(1, profile_size):

@@ -82,6 +82,8 @@ def calculate_accuracy(ground_truth_dir, ecostream_dir):
     allframes_iou = np.zeros_like(os.listdir(ground_truth_dir), dtype=float)
     ecostream_iou = np.zeros_like(os.listdir(ground_truth_dir), dtype=float)
 
+    ecostream_result = None
+
     for i, frame_name in enumerate(sort_nicely(os.listdir(ground_truth_dir))):
         frame_idx = name2index(frame_name)
 
@@ -89,31 +91,33 @@ def calculate_accuracy(ground_truth_dir, ecostream_dir):
         if frame_idx < name2index(ecostream_dir_list[0]):
             continue
 
-        while ecostream_dir_idx+1 < len(ecostream_dir_list) and frame_idx >= name2index(ecostream_dir_list[ecostream_dir_idx+1]):
+        if ecostream_dir_idx+1 < len(ecostream_dir_list) and frame_idx >= name2index(ecostream_dir_list[ecostream_dir_idx+1]):
             ecostream_dir_idx += 1
+            es_frame = cv2.imread(os.path.join(ecostream_dir, ecostream_dir_list[ecostream_dir_idx]))
+            ecostream_result = pred_model.predict(es_frame, verbose=False)
         
         print(frame_idx, name2index(ecostream_dir_list[ecostream_dir_idx]))
 
         gt_frame = cv2.imread(os.path.join(ground_truth_dir, frame_name))
-        es_frame = cv2.imread(os.path.join(ecostream_dir, ecostream_dir_list[ecostream_dir_idx]))
         ground_truth_result = truth_model.predict(gt_frame, verbose=False)
         allframes_result = pred_model.predict(gt_frame, verbose=False)
-        ecostream_result = pred_model.predict(es_frame, verbose=False)
+
+        if ecostream_result is None:
+            # Use first frame for ecostream if we haven't predicted yet
+            ecostream_result = allframes_result
 
         allframes_iou[i] = frame_iou(ground_truth_result[0].boxes, allframes_result[0].boxes)
-        # print(f'allframe {frame_iou(ground_truth_result[0].boxes, allframes_result[0].boxes)}')
         ecostream_iou[i] = frame_iou(ground_truth_result[0].boxes, ecostream_result[0].boxes)
-        # print(f'ecostream {frame_iou(ground_truth_result[0].boxes, ecostream_result[0].boxes)}')
 
     return ecostream_iou, allframes_iou
 
 if __name__ == '__main__':
     PATH_STEM = os.path.dirname(__file__)
-    GROUND_TRUTH_DIR = 'ground-truth-output'
-    ECOSTREAM_DIR = 'ecostream-output'
+    GROUND_TRUTH_DIR = 'ny_driving/30fps'
+    ECOSTREAM_DIR = 'ny_driving/25fps'
     ecostream_iou, allframes_iou = calculate_accuracy(os.path.join(PATH_STEM, GROUND_TRUTH_DIR), os.path.join(PATH_STEM, ECOSTREAM_DIR))
     
     print(f'Ecostream IoU by frame: {ecostream_iou.reshape(-1, 1)}')
     print(f'All frames IoU by frame: {allframes_iou.reshape(-1, 1)}')
-    print(f'EcoStream IoU: {ecostream_iou.mean()}')
-    print(f'Sending all frames IoU: {allframes_iou.mean()}')
+    print(f'EcoStream IoU: {round(ecostream_iou.mean(), 4)}')
+    print(f'Sending all frames IoU: {round(allframes_iou.mean(), 4)}')
